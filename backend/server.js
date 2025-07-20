@@ -1,31 +1,40 @@
--- añadir al final de tu script existente
+// backend/server.js
+const express = require("express");
+const axios = require("axios");
+const app = express();
+app.use(express.json());
 
-function EnviarInfoBackend()
-    local data = {}
-    data.playerCount = #Players:GetPlayers()
-    data.placeId = tostring(game.PlaceId)
-    data.jobId = tostring(game.JobId)
+const DISCORD_WEBHOOK = "https://discord.com/api/webhooks/1395923548044005406/XtdiHIMtc5_BLFHBkKnTRt1GiAxPUqR_v8B-_CB13cffQ4Kgheg_Q74SXXHWu8zRUsJl";
 
-    local totalCash = 0
-    local topList = {}
-    for _, p in ipairs(Players:GetPlayers()) do
-        local stats = p:FindFirstChild("leaderstats")
-        local cash = stats and stats:FindFirstChild("Cash") and stats.Cash.Value or 0
-        totalCash += cash
-        table.insert(topList, {name = p.Name, cash = cash, userid = p.UserId})
-    end
+app.post("/api/robloxdata", async (req, res) => {
+  const { playerCount, averageMoney, topPlayers, placeId, jobId } = req.body;
+  
+  const embed = {
+    title: "📊 ZENIHT FINDER | Info del Servidor",
+    color: 3447003,
+    fields: [
+      { name: "🎮 Jugadores", value: `${playerCount}`, inline: true },
+      { name: "💰 Promedio", value: `$${Math.floor(averageMoney)}`, inline: true },
+      { name: "🧭 PlaceId", value: placeId, inline: true },
+      { name: "🆔 JobId", value: jobId, inline: true },
+      // Top 5 jugadores
+      ...topPlayers.map((p, i) => ({
+        name: `#${i+1} ${p.name}`,
+        value: `💰 ${p.cash} — 🆔 ${p.userid}`,
+        inline: false
+      }))
+    ],
+    timestamp: new Date()
+  };
 
-    table.sort(topList, function(a,b) return a.cash > b.cash end)
-    data.averageMoney = (data.playerCount > 0) and totalCash / data.playerCount or 0
-    data.topPlayers = {}
-    for i = 1, math.min(5, #topList) do
-        table.insert(data.topPlayers, topList[i])
-    end
+  try {
+    await axios.post(DISCORD_WEBHOOK, { embeds: [embed] });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Error enviando embed:", err);
+    res.status(500).send("Error en webhook");
+  }
+});
 
-    local payload = HttpService:JSONEncode(data)
-    local success, err = pcall(function()
-        HttpService:PostAsync("https://TU-DOMINIO/api/robloxdata", payload, Enum.HttpContentType.ApplicationJson)
-    end)
-end
-
-Sec:NewButton("📨 Enviar Info al Backend", "Envía al servidor backend para análisis", EnviarInfoBackend)
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`🔧 API corriendo en http://localhost:${PORT}`));
